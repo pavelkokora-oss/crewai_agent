@@ -266,25 +266,31 @@ def get_blog_posts(api_url: str, limit: int = 50):
         limit: Количество результатов для получения (по умолчанию 50)
     
     Returns:
-        list: Список словарей с данными блог-постов или None в случае ошибки
+        tuple: (список_данных, ошибка) - список словарей с данными блог-постов или (None, сообщение_об_ошибке)
     """
     if not api_url or not api_url.strip():
-        return None
+        return None, "URL API сервера не указан"
     
     try:
         # Убираем завершающий слеш, если есть
-        api_url = api_url.strip().rstrip('/')
-        url = f"{api_url}/webhook/results?limit={limit}"
+        api_url_clean = api_url.strip().rstrip('/')
+        url = f"{api_url_clean}/webhook/results?limit={limit}"
         
         response = requests.get(url, timeout=10)
         
         if response.status_code == 200:
             data = response.json()
-            return data.get('results', [])
+            return data.get('results', []), None
         else:
-            return None
+            return None, f"Ошибка HTTP {response.status_code}: {response.text[:200]}"
+    except requests.exceptions.Timeout:
+        return None, "Таймаут при подключении к API серверу"
+    except requests.exceptions.ConnectionError:
+        return None, f"Не удалось подключиться к {api_url}. Проверьте URL."
+    except requests.exceptions.RequestException as e:
+        return None, f"Ошибка запроса: {str(e)}"
     except Exception as e:
-        return None
+        return None, f"Неожиданная ошибка: {str(e)}"
 
 
 def main():
@@ -539,12 +545,19 @@ def main():
             # Получаем данные
             if refresh_button or 'blog_posts_data' not in st.session_state:
                 with st.spinner('⏳ Загрузка данных...'):
-                    posts = get_blog_posts(api_url)
+                    posts, error = get_blog_posts(api_url)
                     st.session_state.blog_posts_data = posts
+                    st.session_state.blog_posts_error = error
             
-            posts = st.session_state.get('blog_posts_data', [])
+            posts = st.session_state.get('blog_posts_data')
+            error = st.session_state.get('blog_posts_error')
             
-            if posts is None:
+            # Отображаем ошибку, если есть
+            if error:
+                st.error(f"❌ Ошибка при загрузке данных: {error}")
+                st.info("💡 Проверьте URL API сервера в боковой панели. Пример: https://your-app.railway.app")
+                st.code(f"URL: {api_url}/webhook/results", language="text")
+            elif posts is None:
                 st.error("❌ Ошибка при загрузке данных. Проверьте URL API сервера в настройках.")
             elif len(posts) == 0:
                 st.info("📭 Пока нет созданных блог-постов. Создайте первый блог-пост во вкладке 'Создать блог-пост'.")
