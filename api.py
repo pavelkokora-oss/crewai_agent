@@ -367,10 +367,14 @@ def get_results():
                 LIMIT %s OFFSET %s
             ''', (f'%{topic_filter}%', limit, offset))
             
-            # Получаем общее количество для подсчета
+            # СНАЧАЛА получаем результаты первого запроса
+            rows = cursor.fetchall()
+            
+            # ПОТОМ получаем общее количество для подсчета
             cursor.execute('''
                 SELECT COUNT(*) FROM blog_posts WHERE topic ILIKE %s
             ''', (f'%{topic_filter}%',))
+            total_count = cursor.fetchone()[0]
         else:
             cursor.execute('''
                 SELECT id, topic, author, date, content, created_at, status
@@ -379,13 +383,12 @@ def get_results():
                 LIMIT %s OFFSET %s
             ''', (limit, offset))
             
-            # Получаем общее количество
+            # СНАЧАЛА получаем результаты первого запроса
+            rows = cursor.fetchall()
+            
+            # ПОТОМ получаем общее количество
             cursor.execute('SELECT COUNT(*) FROM blog_posts')
-        
-        total_count = cursor.fetchone()[0]
-        
-        # Получаем результаты
-        rows = cursor.fetchall()
+            total_count = cursor.fetchone()[0]
         results = []
         for row in rows:
             results.append({
