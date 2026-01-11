@@ -4,7 +4,6 @@ API сервер для обработки webhook-запросов от Google 
 """
 import os
 import logging
-import threading
 from datetime import datetime
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify
@@ -60,6 +59,95 @@ def save_to_db(topic: str, content: str, author: str = None, date: str = None):
         return post_id
     except Exception as e:
         logger.error(f"❌ Ошибка при сохранении в БД: {str(e)}", exc_info=True)
+        raise
+
+
+def create_task_in_db(topic: str, author: str = None, date: str = None):
+    """Создает задачу со статусом 'pending' в Supabase."""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO blog_posts (topic, author, date, content, status)
+            VALUES (%s, %s, %s, '', 'pending')
+            RETURNING id
+        ''', (topic, author, date))
+        task_id = cursor.fetchone()[0]
+        conn.commit()
+        cursor.close()
+        conn.close()
+        logger.info(f"✅ Задача создана в Supabase с ID: {task_id}, тема: '{topic}'")
+        return task_id
+    except Exception as e:
+        logger.error(f"❌ Ошибка при создании задачи в БД: {str(e)}", exc_info=True)
+        raise
+
+
+def get_pending_task():
+    """Получает первую задачу со статусом 'pending' из Supabase."""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT id, topic, author, date, created_at
+            FROM blog_posts
+            WHERE status = 'pending'
+            ORDER BY created_at ASC
+            LIMIT 1
+        ''')
+        row = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        
+        if row:
+            return {
+                'id': row[0],
+                'topic': row[1],
+                'author': row[2],
+                'date': row[3],
+                'created_at': row[4]
+            }
+        return None
+    except Exception as e:
+        logger.error(f"❌ Ошибка при получении задачи из БД: {str(e)}", exc_info=True)
+        return None
+
+
+def update_task_status(task_id: int, status: str):
+    """Обновляет статус задачи в Supabase."""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            UPDATE blog_posts
+            SET status = %s
+            WHERE id = %s
+        ''', (status, task_id))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        logger.info(f"✅ Статус задачи {task_id} обновлен на '{status}'")
+    except Exception as e:
+        logger.error(f"❌ Ошибка при обновлении статуса задачи {task_id}: {str(e)}", exc_info=True)
+        raise
+
+
+def update_task_result(task_id: int, content: str, status: str = 'completed'):
+    """Обновляет content и status задачи в Supabase."""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            UPDATE blog_posts
+            SET content = %s, status = %s
+            WHERE id = %s
+        ''', (str(content), status, task_id))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        logger.info(f"✅ Результат задачи {task_id} обновлен, статус: '{status}'")
+    except Exception as e:
+        logger.error(f"❌ Ошибка при обновлении результата задачи {task_id}: {str(e)}", exc_info=True)
         raise
 
 
@@ -229,24 +317,19 @@ def start_blogpost():
             logger.warning("⚠️ Поле 'topic' пустое")
             return jsonify({'error': "Field 'topic' cannot be empty"}), 400
         
-        logger.info(f"🚀 Запуск генерации блог-поста для темы: '{topic}'")
+        logger.info(f"🚀 Создание задачи для темы: '{topic}'")
         if author:
             logger.info(f"   Автор: {author}")
         if date:
             logger.info(f"   Дата: {date}")
         
-        # Запускаем агентов асинхронно в отдельном потоке
-        thread = threading.Thread(
-            target=run_agents_async,
-            args=(topic.strip(), author, date),
-            daemon=True
-        )
-        thread.start()
+        # Создаем задачу в БД со статусом 'pending'
+        task_id = create_task_in_db(topic.strip(), author, date)
         
-        logger.info(f"✅ Генерация запущена асинхронно для темы: '{topic}'")
+        logger.info(f"✅ Задача создана с ID: {task_id} для темы: '{topic}'")
         
         # Сразу возвращаем успешный ответ
-        return jsonify({'status': 'started'}), 200
+        return jsonify({'status': 'started', 'task_id': task_id}), 200
         
     except Exception as e:
         logger.error(f"❌ Ошибка при обработке запроса: {str(e)}", exc_info=True)
