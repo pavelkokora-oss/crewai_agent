@@ -13,6 +13,7 @@ pip install -r requirements.txt
 ```bash
 OPENAI_API_KEY=ваш_ключ_openai
 SERPER_API_KEY=ваш_ключ_serper
+DATABASE_URL=postgresql://postgres:password@host:port/database  # Только для API сервера (api.py)
 ```
 
 **⚠️ ВАЖНО для безопасности:**
@@ -48,16 +49,124 @@ python main.py
 
 1. **Исследователь** ищет последние новости (1-2 недели) по заданной теме через Serper API
 2. **Писатель** создает информативный блог-пост на русском языке на основе найденных новостей
-3. Результат отображается в Markdown формате и сохраняется в файл `blog_post.txt`
+3. Результат отображается в Markdown формате (в Streamlit) или сохраняется в Supabase (через API)
 
 ## Структура проекта
 
 - `app.py` - Streamlit веб-приложение с интерактивным интерфейсом
+- `api.py` - Flask API сервер для обработки webhook-запросов и хранения результатов в Supabase
 - `main.py` - CLI версия агента CrewAI (тема "AI Agents" жестко задана)
 - `requirements.txt` - зависимости проекта
 - `.env` - файл с переменными окружения (создайте его самостоятельно, **НЕ коммитьте в Git!**)
 - `env.example` - пример файла с переменными окружения (без реальных ключей)
-- `blog_post.txt` - результат работы агента (создается автоматически)
+- `Procfile` - конфигурация для деплоя на Railway.app
+- `runtime.txt` - версия Python для деплоя
+
+## API Сервер (api.py)
+
+Flask API сервер предоставляет следующие эндпоинты:
+
+### POST /webhook/start-blogpost
+Запускает генерацию блог-поста асинхронно.
+
+**Тело запроса (JSON):**
+```json
+{
+  "topic": "AI Agents",
+  "author": "Иван Иванов",
+  "date": "2024-01-15"
+}
+```
+
+**Ответ:**
+```json
+{
+  "status": "started"
+}
+```
+
+### GET /webhook/results
+Получить все результаты с опциональной фильтрацией.
+
+**Query параметры:**
+- `topic` (опционально) - фильтр по теме (ILIKE поиск)
+- `limit` (опционально, по умолчанию 50) - количество результатов
+- `offset` (опционально, по умолчанию 0) - смещение для пагинации
+
+**Пример:**
+```
+GET /webhook/results?topic=AI&limit=10&offset=0
+```
+
+### GET /webhook/results/<id>
+Получить результат по ID.
+
+**Пример:**
+```
+GET /webhook/results/1
+```
+
+### GET /webhook/results/latest
+Получить последние N результатов.
+
+**Query параметры:**
+- `limit` (опционально, по умолчанию 10) - количество последних результатов
+
+**Пример:**
+```
+GET /webhook/results/latest?limit=5
+```
+
+### GET /health
+Health check эндпоинт для проверки работоспособности сервера.
+
+**Запуск API сервера:**
+```bash
+python api.py
+```
+
+Или для production (Railway):
+```bash
+gunicorn api:app
+```
+
+## База данных (Supabase)
+
+Результаты генерации блог-постов сохраняются в PostgreSQL базе данных Supabase.
+
+### Создание таблицы
+
+Выполните следующий SQL в Supabase SQL Editor:
+
+```sql
+CREATE TABLE blog_posts (
+    id SERIAL PRIMARY KEY,
+    topic TEXT NOT NULL,
+    author TEXT,
+    date TEXT,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    status TEXT DEFAULT 'completed'
+);
+
+CREATE INDEX idx_blog_posts_topic ON blog_posts(topic);
+CREATE INDEX idx_blog_posts_created_at ON blog_posts(created_at DESC);
+```
+
+### Получение Connection String
+
+1. Откройте Supabase Dashboard → ваш проект
+2. Перейдите в Settings → Database
+3. Скопируйте Connection string (URI)
+4. **ВАЖНО:** Если в пароле есть специальные символы (например, `@`), их нужно URL-кодировать:
+   - `@` → `%40`
+   - `#` → `%23`
+   - и т.д.
+
+**Пример:**
+```
+postgresql://postgres:QJjfN2%40kfIqW1@db.xxx.supabase.co:5432/postgres
+```
 
 ## Публикация в Streamlit Cloud
 

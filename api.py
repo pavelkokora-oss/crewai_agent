@@ -12,6 +12,7 @@ from crewai import Agent, Task, Crew, Process
 from crewai.tools import tool
 from langchain_openai import ChatOpenAI
 import requests
+import psycopg2
 
 # Настройка логирования
 logging.basicConfig(
@@ -31,6 +32,35 @@ openai_llm = ChatOpenAI(
     model='gpt-4o-mini',
     temperature=0.7
 )
+
+
+def get_db_connection():
+    """Получает подключение к Supabase PostgreSQL."""
+    database_url = os.getenv('DATABASE_URL')
+    if not database_url:
+        raise ValueError("DATABASE_URL not found in environment variables")
+    return psycopg2.connect(database_url)
+
+
+def save_to_db(topic: str, content: str, author: str = None, date: str = None):
+    """Сохраняет результат генерации в Supabase."""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO blog_posts (topic, author, date, content, status)
+            VALUES (%s, %s, %s, %s, 'completed')
+            RETURNING id
+        ''', (topic, author, date, str(content)))
+        post_id = cursor.fetchone()[0]
+        conn.commit()
+        cursor.close()
+        conn.close()
+        logger.info(f"✅ Результат сохранен в Supabase с ID: {post_id}")
+        return post_id
+    except Exception as e:
+        logger.error(f"❌ Ошибка при сохранении в БД: {str(e)}", exc_info=True)
+        raise
 
 
 @tool("Поиск в интернете")
@@ -160,12 +190,10 @@ def run_agents_async(topic: str, author: str = None, date: str = None):
         crew = create_research_crew(topic, openai_llm)
         result = crew.kickoff()
         
-        # Сохраняем результат в файл
-        filename = f"blog_post_{topic.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
-        with open(filename, 'w', encoding='utf-8') as f:
-            f.write(str(result))
+        # Сохраняем результат в Supabase
+        post_id = save_to_db(topic, result, author, date)
         
-        logger.info(f"✅ Генерация завершена для темы '{topic}'. Результат сохранен в {filename}")
+        logger.info(f"✅ Генерация завершена для темы '{topic}'. Результат сохранен в Supabase с ID: {post_id}")
         logger.info(f"Результат (первые 200 символов): {str(result)[:200]}...")
         
     except Exception as e:
@@ -222,6 +250,180 @@ def start_blogpost():
         
     except Exception as e:
         logger.error(f"❌ Ошибка при обработке запроса: {str(e)}", exc_info=True)
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/webhook/results', methods=['GET'])
+def get_results():
+    """
+    GET эндпоинт для получения всех результатов или с фильтрацией.
+    
+    Query параметры:
+        - topic (опционально): фильтр по теме
+        - limit (опционально, по умолчанию 50): количество результатов
+        - offset (опционально, по умолчанию 0): смещение для пагинации
+    
+    Returns:
+        JSON с массивом результатов и count
+    """
+    try:
+        topic_filter = request.args.get('topic', None)
+        limit = int(request.args.get('limit', 50))
+        offset = int(request.args.get('offset', 0))
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Строим запрос в зависимости от наличия фильтра
+        if topic_filter:
+            cursor.execute('''
+                SELECT id, topic, author, date, content, created_at, status
+                FROM blog_posts
+                WHERE topic ILIKE %s
+                ORDER BY created_at DESC
+                LIMIT %s OFFSET %s
+            ''', (f'%{topic_filter}%', limit, offset))
+            
+            # Получаем общее количество для подсчета
+            cursor.execute('''
+                SELECT COUNT(*) FROM blog_posts WHERE topic ILIKE %s
+            ''', (f'%{topic_filter}%',))
+        else:
+            cursor.execute('''
+                SELECT id, topic, author, date, content, created_at, status
+                FROM blog_posts
+                ORDER BY created_at DESC
+                LIMIT %s OFFSET %s
+            ''', (limit, offset))
+            
+            # Получаем общее количество
+            cursor.execute('SELECT COUNT(*) FROM blog_posts')
+        
+        total_count = cursor.fetchone()[0]
+        
+        # Получаем результаты
+        rows = cursor.fetchall()
+        results = []
+        for row in rows:
+            results.append({
+                'id': row[0],
+                'topic': row[1],
+                'author': row[2],
+                'date': row[3],
+                'content': row[4],
+                'created_at': row[5].isoformat() if row[5] else None,
+                'status': row[6]
+            })
+        
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            'results': results,
+            'count': len(results),
+            'total': total_count,
+            'limit': limit,
+            'offset': offset
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"❌ Ошибка при получении результатов: {str(e)}", exc_info=True)
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/webhook/results/<int:post_id>', methods=['GET'])
+def get_result_by_id(post_id):
+    """
+    GET эндпоинт для получения результата по ID.
+    
+    Args:
+        post_id: ID блог-поста
+    
+    Returns:
+        JSON с результатом или 404 если не найден
+    """
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT id, topic, author, date, content, created_at, status
+            FROM blog_posts
+            WHERE id = %s
+        ''', (post_id,))
+        
+        row = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        
+        if not row:
+            return jsonify({'error': 'Blog post not found'}), 404
+        
+        result = {
+            'id': row[0],
+            'topic': row[1],
+            'author': row[2],
+            'date': row[3],
+            'content': row[4],
+            'created_at': row[5].isoformat() if row[5] else None,
+            'status': row[6]
+        }
+        
+        return jsonify(result), 200
+        
+    except Exception as e:
+        logger.error(f"❌ Ошибка при получении результата по ID {post_id}: {str(e)}", exc_info=True)
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/webhook/results/latest', methods=['GET'])
+def get_latest_results():
+    """
+    GET эндпоинт для получения последних N результатов.
+    
+    Query параметры:
+        - limit (опционально, по умолчанию 10): количество последних результатов
+    
+    Returns:
+        JSON с массивом последних результатов
+    """
+    try:
+        limit = int(request.args.get('limit', 10))
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT id, topic, author, date, content, created_at, status
+            FROM blog_posts
+            ORDER BY created_at DESC
+            LIMIT %s
+        ''', (limit,))
+        
+        rows = cursor.fetchall()
+        results = []
+        for row in rows:
+            results.append({
+                'id': row[0],
+                'topic': row[1],
+                'author': row[2],
+                'date': row[3],
+                'content': row[4],
+                'created_at': row[5].isoformat() if row[5] else None,
+                'status': row[6]
+            })
+        
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            'results': results,
+            'count': len(results),
+            'limit': limit
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"❌ Ошибка при получении последних результатов: {str(e)}", exc_info=True)
         return jsonify({'error': str(e)}), 500
 
 
