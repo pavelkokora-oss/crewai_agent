@@ -301,6 +301,15 @@ def main():
     if 'last_topic' not in st.session_state:
         st.session_state.last_topic = None
     
+    # Sidebar с настройками (webhook URL)
+    with st.sidebar:
+        st.header("⚙️ Настройки")
+        webhook_url = st.text_input(
+            "n8n Webhook URL",
+            placeholder="https://your-n8n-instance.com/webhook/...",
+            help="Введите URL webhook для отправки результата в Telegram через n8n"
+        )
+    
     # #region agent log
     try:
         with open('/Users/pavelkokora/crewai_agent/.cursor/debug.log', 'a') as f:
@@ -434,6 +443,24 @@ def main():
             file_name=f"blog_post_{st.session_state.last_topic.replace(' ', '_') if st.session_state.last_topic else 'result'}.txt",
             mime="text/plain"
         )
+        
+        # Кнопка отправки в Telegram через webhook
+        if st.button("📤 Отправить в Telegram"):
+            if not webhook_url or webhook_url.strip() == "":
+                st.warning("⚠️ Пожалуйста, введите URL webhook в боковой панели")
+            else:
+                try:
+                    response = requests.post(
+                        webhook_url.strip(),
+                        json={"text": str(st.session_state.result)},
+                        timeout=10
+                    )
+                    if response.status_code == 200:
+                        st.success("✅ Отправлено!")
+                    else:
+                        st.error(f"❌ Ошибка: статус {response.status_code}")
+                except requests.exceptions.RequestException as e:
+                    st.error(f"❌ Ошибка отправки: {str(e)}")
     
     # Footer с инструкциями
     st.markdown("---")
