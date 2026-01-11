@@ -242,9 +242,12 @@ if __name__ == '__main__':
         logger.error("❌ SERPER_API_KEY не найден в переменных окружения")
     
     if openai_key and serper_key:
+        # Используем PORT из переменных окружения (Railway автоматически устанавливает его)
+        port = int(os.getenv('PORT', 5000))
         logger.info("🚀 Запуск API сервера...")
+        logger.info(f"📡 Порт: {port}")
         logger.info("📡 Эндпоинт: POST /webhook/start-blogpost")
         logger.info("💚 Health check: GET /health")
-        app.run(host='0.0.0.0', port=5000, debug=False)
+        app.run(host='0.0.0.0', port=port, debug=False)
     else:
         logger.error("❌ Не удалось запустить сервер: отсутствуют необходимые API ключи")
