@@ -450,9 +450,14 @@ def main():
                 st.warning("⚠️ Пожалуйста, введите URL webhook в боковой панели")
             else:
                 try:
+                    # Используем тему из session_state, если доступна, иначе из поля ввода
+                    topic_to_send = st.session_state.last_topic if st.session_state.last_topic else (topic if topic else "Не указано")
                     response = requests.post(
                         webhook_url.strip(),
-                        json={"text": str(st.session_state.result)},
+                        json={
+                            "topic": topic_to_send,
+                            "content": str(st.session_state.result)
+                        },
                         timeout=10
                     )
                     if response.status_code == 200:
