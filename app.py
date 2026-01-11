@@ -209,67 +209,17 @@ def main():
         layout="wide"
     )
     
-    # Заголовок приложения
+    # Инициализируем session_state для хранения результата
+    if 'result' not in st.session_state:
+        st.session_state.result = None
+    if 'last_topic' not in st.session_state:
+        st.session_state.last_topic = None
+    
+    # ЗАГОЛОВОК - показывается ПЕРВЫМ при открытии сайта
     st.title("🚀 CrewAI - Поиск новостей и создание блог-постов")
     st.markdown("---")
     
-    # БЕЗОПАСНО получаем API ключи (сначала из st.secrets, затем из os.environ)
-    # ВАЖНО: Никогда не выводите ключи через st.write(), print() или в логи!
-    openai_api_key = get_api_key('OPENAI_API_KEY')
-    serper_api_key = get_api_key('SERPER_API_KEY')
-    
-    # Устанавливаем ключи в переменные окружения для ChatOpenAI, если они найдены
-    # Это необходимо для работы langchain_openai, но ключи остаются в памяти процесса
-    if openai_api_key:
-        os.environ['OPENAI_API_KEY'] = openai_api_key
-    
-    # Создаем LLM для OpenAI (нужно создавать после получения ключей)
-    openai_llm = ChatOpenAI(
-        model='gpt-4o-mini',  # Используем gpt-4o-mini - быструю и недорогую модель OpenAI
-        temperature=0.7
-    )
-    
-    # Безопасно проверяем API ключи при загрузке приложения
-    keys_ok, missing_keys = check_api_keys()
-    
-    if not keys_ok:
-        st.error("⚠️ Проблема с API ключами")
-        st.write("Не найдены следующие API ключи:")
-        for key in missing_keys:
-            st.write(f"- **{key}**")
-        
-        st.write("\n**Где указать ключи:**")
-        st.markdown("""
-        **Для Streamlit Cloud:**
-        - Перейдите в настройки приложения → Secrets
-        - Добавьте ключи в формате:
-        ```toml
-        OPENAI_API_KEY = "ваш_ключ_openai"
-        SERPER_API_KEY = "ваш_ключ_serper"
-        ```
-        
-        **Для локального запуска:**
-        - Создайте файл `.streamlit/secrets.toml` (для Streamlit) или используйте `.env` (для dotenv)
-        - Добавьте ключи в `.streamlit/secrets.toml`:
-        ```toml
-        OPENAI_API_KEY = "ваш_ключ_openai"
-        SERPER_API_KEY = "ваш_ключ_serper"
-        ```
-        или в `.env`:
-        ```
-        OPENAI_API_KEY=ваш_ключ_openai
-        SERPER_API_KEY=ваш_ключ_serper
-        ```
-        """)
-        
-        if 'OPENAI_API_KEY' in missing_keys or 'OPENAI_API_KEY (неверный формат)' in str(missing_keys):
-            st.info("💡 Ключ OpenAI должен начинаться с `sk-`")
-        st.stop()
-    
-    # Информация о провайдере LLM (без вывода информации о ключах для безопасности)
-    st.info("📡 Используется OpenAI API (gpt-4o-mini) в качестве провайдера LLM")
-    
-    # Поле ввода темы
+    # ПОЛЕ ВВОДА ТЕМЫ - показывается сразу после заголовка
     st.subheader("Введите тему для исследования")
     topic = st.text_input(
         "Тема новостей",
@@ -282,28 +232,75 @@ def main():
     with col2:
         run_button = st.button("🔍 Запустить исследование", type="primary", use_container_width=True)
     
-    # Инициализируем session_state для хранения результата
-    if 'result' not in st.session_state:
-        st.session_state.result = None
-    if 'last_topic' not in st.session_state:
-        st.session_state.last_topic = None
-    
-    # Обработка нажатия кнопки
+    # Обработка нажатия кнопки - ВСЕ ПРОВЕРКИ И ЗАПУСК АГЕНТОВ ТОЛЬКО ЗДЕСЬ
     if run_button:
+        # Проверяем, что тема введена
         if not topic or topic.strip() == "":
             st.warning("⚠️ Пожалуйста, введите тему для исследования")
             st.stop()
         
+        # БЕЗОПАСНО получаем API ключи (сначала из st.secrets, затем из os.environ)
+        # ВАЖНО: Никогда не выводите ключи через st.write(), print() или в логи!
+        openai_api_key = get_api_key('OPENAI_API_KEY')
+        serper_api_key = get_api_key('SERPER_API_KEY')
+        
+        # Безопасно проверяем API ключи
+        keys_ok, missing_keys = check_api_keys()
+        
+        if not keys_ok:
+            st.error("⚠️ Проблема с API ключами")
+            st.write("Не найдены следующие API ключи:")
+            for key in missing_keys:
+                st.write(f"- **{key}**")
+            
+            st.write("\n**Где указать ключи:**")
+            st.markdown("""
+            **Для Streamlit Cloud:**
+            - Перейдите в настройки приложения → Secrets
+            - Добавьте ключи в формате:
+            ```toml
+            OPENAI_API_KEY = "ваш_ключ_openai"
+            SERPER_API_KEY = "ваш_ключ_serper"
+            ```
+            
+            **Для локального запуска:**
+            - Создайте файл `.streamlit/secrets.toml` (для Streamlit) или используйте `.env` (для dotenv)
+            - Добавьте ключи в `.streamlit/secrets.toml`:
+            ```toml
+            OPENAI_API_KEY = "ваш_ключ_openai"
+            SERPER_API_KEY = "ваш_ключ_serper"
+            ```
+            или в `.env`:
+            ```
+            OPENAI_API_KEY=ваш_ключ_openai
+            SERPER_API_KEY=ваш_ключ_serper
+            ```
+            """)
+            
+            if 'OPENAI_API_KEY' in missing_keys or 'OPENAI_API_KEY (неверный формат)' in str(missing_keys):
+                st.info("💡 Ключ OpenAI должен начинаться с `sk-`")
+            st.stop()
+        
         # Проверяем, что ключ не является примером
-        openai_key = get_api_key('OPENAI_API_KEY')
-        if openai_key and ('your' in openai_key.lower() or 'example' in openai_key.lower()):
+        if openai_api_key and ('your' in openai_api_key.lower() or 'example' in openai_api_key.lower()):
             st.error("⚠️ Похоже, что вы используете пример ключа вместо реального!")
             st.write("Пожалуйста, замените ключ на ваш реальный ключ от OpenAI в `st.secrets` или `.env` файле")
             st.stop()
         
-        # Создаем crew с выбранной темой
+        # Устанавливаем ключи в переменные окружения для ChatOpenAI, если они найдены
+        # Это необходимо для работы langchain_openai, но ключи остаются в памяти процесса
+        if openai_api_key:
+            os.environ['OPENAI_API_KEY'] = openai_api_key
+        
+        # Создаем LLM для OpenAI (нужно создавать после получения ключей)
+        openai_llm = ChatOpenAI(
+            model='gpt-4o-mini',  # Используем gpt-4o-mini - быструю и недорогую модель OpenAI
+            temperature=0.7
+        )
+        
+        # Создаем crew и запускаем агентов ТОЛЬКО внутри условия if st.button
         try:
-            with st.spinner(f"🔍 Идет поиск новостей про '{topic}' и создание блог-поста... Это может занять несколько минут."):
+            with st.spinner('⏳ Агенты работают...'):
                 crew = create_research_crew(topic, openai_llm)
                 result = crew.kickoff()
                 
@@ -314,7 +311,7 @@ def main():
                 # Сохраняем результат в файл
                 with open('blog_post.txt', 'w', encoding='utf-8') as f:
                     f.write(str(result))
-                
+            
             # Показываем сообщение об успешном завершении после spinner
             st.success("✅ Исследование завершено! Результат отображается ниже.")
         except Exception as e:
@@ -322,7 +319,7 @@ def main():
             st.exception(e)
             st.stop()
     
-    # Отображение результата
+    # Отображение результата (показывается после запуска агентов)
     if st.session_state.result:
         st.markdown("---")
         st.subheader(f"📝 Результат исследования: {st.session_state.last_topic}")
@@ -334,7 +331,7 @@ def main():
         st.download_button(
             label="📥 Скачать блог-пост",
             data=st.session_state.result,
-            file_name=f"blog_post_{st.session_state.last_topic.replace(' ', '_')}.txt",
+            file_name=f"blog_post_{st.session_state.last_topic.replace(' ', '_') if st.session_state.last_topic else 'result'}.txt",
             mime="text/plain"
         )
     
