@@ -1,0 +1,34 @@
+# Файлы окружения с секретными ключами
+.env
+.env.local
+.env.*
+!.env.example
+
+# Streamlit секреты (локальные) - НЕ КОММИТИТЬ!
+.streamlit/secrets.toml
+
+# Виртуальное окружение
+venv/
+env/
+ENV/
+
+# Python кэш
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Результаты работы агента
+blog_post.txt
+
+# IDE файлы
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Временные файлы
+*.log
+*.tmp
