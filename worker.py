@@ -152,8 +152,18 @@ def create_research_crew(topic: str, llm):
 def get_pending_task():
     """Получает первую задачу со статусом 'pending' из Supabase."""
     try:
+        logger.debug("🔍 Подключение к БД для поиска задач...")
         conn = get_db_connection()
         cursor = conn.cursor()
+        
+        # Сначала проверим количество задач со статусом 'pending'
+        cursor.execute('''
+            SELECT COUNT(*) FROM blog_posts WHERE status = 'pending'
+        ''')
+        pending_count = cursor.fetchone()[0]
+        logger.info(f"📊 Найдено задач со статусом 'pending': {pending_count}")
+        
+        # Получаем первую задачу
         cursor.execute('''
             SELECT id, topic, author, date, created_at
             FROM blog_posts
@@ -166,6 +176,7 @@ def get_pending_task():
         conn.close()
         
         if row:
+            logger.info(f"✅ Задача найдена в БД: ID={row[0]}, тема='{row[1]}'")
             return {
                 'id': row[0],
                 'topic': row[1],
@@ -173,6 +184,7 @@ def get_pending_task():
                 'date': row[3],
                 'created_at': row[4]
             }
+        logger.info("ℹ️  Задач со статусом 'pending' не найдено")
         return None
     except Exception as e:
         logger.error(f"❌ Ошибка при получении задачи из БД: {str(e)}", exc_info=True)
@@ -274,19 +286,24 @@ def main():
     logger.info("✅ Все необходимые переменные окружения найдены")
     
     # Основной цикл обработки задач
+    iteration = 0
     while True:
         try:
+            iteration += 1
+            logger.info(f"🔄 Итерация {iteration}: Проверка наличия задач со статусом 'pending'...")
+            
             # Получаем задачу со статусом 'pending'
             task = get_pending_task()
             
             if task:
-                logger.info(f"📋 Найдена задача для обработки: ID={task['id']}, тема='{task['topic']}'")
+                logger.info(f"📋 Найдена задача для обработки: ID={task['id']}, тема='{task['topic']}', создана: {task['created_at']}")
                 process_task(task)
             else:
                 # Если задач нет, просто ждем
-                logger.debug("⏳ Задач для обработки нет, ожидание...")
+                logger.info("⏳ Задач для обработки нет, ожидание 10 секунд...")
             
             # Ждем 10 секунд перед следующей проверкой
+            logger.info("⏱️  Ожидание 10 секунд перед следующей проверкой...")
             time.sleep(10)
             
         except KeyboardInterrupt:
