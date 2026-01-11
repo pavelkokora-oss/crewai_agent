@@ -9,16 +9,72 @@ Streamlit веб-приложение для поиска новостей и н
 - Файлы с секретами (.env, .streamlit/secrets.toml) должны быть в .gitignore
 """
 import os
+import json
+import traceback
+from datetime import datetime
+
+# #region agent log
+try:
+    with open('/Users/pavelkokora/crewai_agent/.cursor/debug.log', 'a') as f:
+        f.write(json.dumps({"id":"log_import_start","timestamp":int(datetime.now().timestamp()*1000),"location":"app.py:13","message":"Starting imports","data":{"step":"import_os_requests"},"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}) + "\n")
+except: pass
+# #endregion
+
 import requests
 import streamlit as st
+
+# #region agent log
+try:
+    with open('/Users/pavelkokora/crewai_agent/.cursor/debug.log', 'a') as f:
+        f.write(json.dumps({"id":"log_import_streamlit","timestamp":int(datetime.now().timestamp()*1000),"location":"app.py:17","message":"Streamlit imported","data":{"step":"import_streamlit"},"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}) + "\n")
+except: pass
+# #endregion
+
 from dotenv import load_dotenv
+
+# #region agent log
+try:
+    with open('/Users/pavelkokora/crewai_agent/.cursor/debug.log', 'a') as f:
+        f.write(json.dumps({"id":"log_before_load_dotenv","timestamp":int(datetime.now().timestamp()*1000),"location":"app.py:22","message":"Before load_dotenv","data":{"step":"before_load_dotenv"},"sessionId":"debug-session","runId":"run1","hypothesisId":"D"}) + "\n")
+except: pass
+# #endregion
+
+# Загружаем переменные окружения из .env файла (для локального запуска)
+# ВНИМАНИЕ: .env файл должен быть в .gitignore и НЕ попадать в репозиторий!
+try:
+    load_dotenv(override=True)
+    # #region agent log
+    try:
+        with open('/Users/pavelkokora/crewai_agent/.cursor/debug.log', 'a') as f:
+            f.write(json.dumps({"id":"log_after_load_dotenv","timestamp":int(datetime.now().timestamp()*1000),"location":"app.py:27","message":"After load_dotenv","data":{"step":"load_dotenv_success"},"sessionId":"debug-session","runId":"run1","hypothesisId":"D"}) + "\n")
+    except: pass
+    # #endregion
+except Exception as e:
+    # #region agent log
+    try:
+        with open('/Users/pavelkokora/crewai_agent/.cursor/debug.log', 'a') as f:
+            f.write(json.dumps({"id":"log_load_dotenv_error","timestamp":int(datetime.now().timestamp()*1000),"location":"app.py:30","message":"load_dotenv error","data":{"error":str(e),"traceback":traceback.format_exc()},"sessionId":"debug-session","runId":"run1","hypothesisId":"D"}) + "\n")
+    except: pass
+    # #endregion
+    raise
+
+# #region agent log
+try:
+    with open('/Users/pavelkokora/crewai_agent/.cursor/debug.log', 'a') as f:
+        f.write(json.dumps({"id":"log_before_crewai_import","timestamp":int(datetime.now().timestamp()*1000),"location":"app.py:34","message":"Before CrewAI import","data":{"step":"before_crewai"},"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}) + "\n")
+except: pass
+# #endregion
+
 from crewai import Agent, Task, Crew, Process
 from crewai.tools import tool
 from langchain_openai import ChatOpenAI
 
-# Загружаем переменные окружения из .env файла (для локального запуска)
-# ВНИМАНИЕ: .env файл должен быть в .gitignore и НЕ попадать в репозиторий!
-load_dotenv(override=True)
+# #region agent log
+try:
+    with open('/Users/pavelkokora/crewai_agent/.cursor/debug.log', 'a') as f:
+        f.write(json.dumps({"id":"log_after_all_imports","timestamp":int(datetime.now().timestamp()*1000),"location":"app.py:40","message":"All imports completed","data":{"step":"imports_complete"},"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}) + "\n")
+except: pass
+# #endregion
 
 
 def get_api_key(key_name: str) -> str | None:
@@ -203,11 +259,41 @@ def check_api_keys():
 
 def main():
     """Основная функция Streamlit приложения."""
-    st.set_page_config(
-        page_title="CrewAI - Поиск новостей и создание блог-постов",
-        page_icon="🚀",
-        layout="wide"
-    )
+    # #region agent log
+    try:
+        with open('/Users/pavelkokora/crewai_agent/.cursor/debug.log', 'a') as f:
+            f.write(json.dumps({"id":"log_main_start","timestamp":int(datetime.now().timestamp()*1000),"location":"app.py:206","message":"main() called","data":{"step":"main_entry"},"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}) + "\n")
+    except: pass
+    # #endregion
+    
+    # #region agent log
+    try:
+        with open('/Users/pavelkokora/crewai_agent/.cursor/debug.log', 'a') as f:
+            f.write(json.dumps({"id":"log_before_set_page_config","timestamp":int(datetime.now().timestamp()*1000),"location":"app.py:210","message":"Before set_page_config","data":{"step":"before_page_config"},"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}) + "\n")
+    except: pass
+    # #endregion
+    
+    try:
+        st.set_page_config(
+            page_title="CrewAI - Поиск новостей и создание блог-постов",
+            page_icon="🚀",
+            layout="wide"
+        )
+        # #region agent log
+        try:
+            with open('/Users/pavelkokora/crewai_agent/.cursor/debug.log', 'a') as f:
+                f.write(json.dumps({"id":"log_after_set_page_config","timestamp":int(datetime.now().timestamp()*1000),"location":"app.py:220","message":"After set_page_config","data":{"step":"page_config_success"},"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}) + "\n")
+        except: pass
+        # #endregion
+    except Exception as e:
+        # #region agent log
+        try:
+            with open('/Users/pavelkokora/crewai_agent/.cursor/debug.log', 'a') as f:
+                f.write(json.dumps({"id":"log_set_page_config_error","timestamp":int(datetime.now().timestamp()*1000),"location":"app.py:223","message":"set_page_config error","data":{"error":str(e),"traceback":traceback.format_exc()},"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}) + "\n")
+        except: pass
+        # #endregion
+        st.error(f"Ошибка настройки страницы: {str(e)}")
+        return
     
     # Инициализируем session_state для хранения результата
     if 'result' not in st.session_state:
@@ -215,9 +301,23 @@ def main():
     if 'last_topic' not in st.session_state:
         st.session_state.last_topic = None
     
+    # #region agent log
+    try:
+        with open('/Users/pavelkokora/crewai_agent/.cursor/debug.log', 'a') as f:
+            f.write(json.dumps({"id":"log_before_title","timestamp":int(datetime.now().timestamp()*1000),"location":"app.py:235","message":"Before st.title","data":{"step":"before_title"},"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}) + "\n")
+    except: pass
+    # #endregion
+    
     # ЗАГОЛОВОК - показывается ПЕРВЫМ при открытии сайта
     st.title("🚀 CrewAI - Поиск новостей и создание блог-постов")
     st.markdown("---")
+    
+    # #region agent log
+    try:
+        with open('/Users/pavelkokora/crewai_agent/.cursor/debug.log', 'a') as f:
+            f.write(json.dumps({"id":"log_after_title","timestamp":int(datetime.now().timestamp()*1000),"location":"app.py:240","message":"After st.title","data":{"step":"title_displayed"},"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}) + "\n")
+    except: pass
+    # #endregion
     
     # ПОЛЕ ВВОДА ТЕМЫ - показывается сразу после заголовка
     st.subheader("Введите тему для исследования")
@@ -349,10 +449,30 @@ def main():
         - **Исследователь** ищет последние новости (1-2 недели) по заданной теме через Serper API
         - **Писатель** создает информативный блог-пост на русском языке на основе найденных новостей
         - Результат отображается в Markdown формате
-        
-        ### Требования:
-        - В файле `.env` должны быть указаны `OPENAI_API_KEY` и `SERPER_API_KEY`
         """)
 
 if __name__ == '__main__':
-    main()
+    # #region agent log
+    try:
+        with open('/Users/pavelkokora/crewai_agent/.cursor/debug.log', 'a') as f:
+            f.write(json.dumps({"id":"log_script_start","timestamp":int(datetime.now().timestamp()*1000),"location":"app.py:361","message":"Script started, calling main()","data":{"step":"script_entry"},"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}) + "\n")
+    except: pass
+    # #endregion
+    
+    try:
+        main()
+        # #region agent log
+        try:
+            with open('/Users/pavelkokora/crewai_agent/.cursor/debug.log', 'a') as f:
+                f.write(json.dumps({"id":"log_main_complete","timestamp":int(datetime.now().timestamp()*1000),"location":"app.py:367","message":"main() completed","data":{"step":"main_complete"},"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}) + "\n")
+        except: pass
+        # #endregion
+    except Exception as e:
+        # #region agent log
+        try:
+            with open('/Users/pavelkokora/crewai_agent/.cursor/debug.log', 'a') as f:
+                f.write(json.dumps({"id":"log_main_exception","timestamp":int(datetime.now().timestamp()*1000),"location":"app.py:370","message":"Exception in main()","data":{"error":str(e),"traceback":traceback.format_exc()},"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}) + "\n")
+        except: pass
+        # #endregion
+        st.error(f"Критическая ошибка: {str(e)}")
+        st.exception(e)
